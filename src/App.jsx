@@ -1,35 +1,101 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useRef, useState } from "react";
+import Peer from "peerjs";
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [peerId, setPeerId] = useState("");
+  const [remotePeerIdValue, setRemotePeerIdValue] = useState("");
+  const remoteVideoRef = useRef(null);
+  const currentUserVideoRef = useRef(null);
+  const peerInstance = useRef(null);
+
+  useEffect(() => {
+    const peer = new Peer();
+
+    peer.on("open", (id) => {
+      setPeerId(id);
+    });
+
+    peer.on("call", (call) => {
+      var getUserMedia =
+        navigator.getUserMedia ||
+        navigator.webkitGetUserMedia ||
+        navigator.mozGetUserMedia;
+
+      getUserMedia({ video: true, audio: true }, (mediaStream) => {
+        currentUserVideoRef.current.srcObject = mediaStream;
+        currentUserVideoRef.current.play();
+        call.answer(mediaStream);
+        call.on("stream", function (remoteStream) {
+          remoteVideoRef.current.srcObject = remoteStream;
+          remoteVideoRef.current.play();
+        });
+      });
+    });
+
+    peerInstance.current = peer;
+  }, []);
+
+  const call = (remotePeerId) => {
+    var getUserMedia =
+      navigator.getUserMedia ||
+      navigator.webkitGetUserMedia ||
+      navigator.mozGetUserMedia;
+
+    getUserMedia({ video: true, audio: true }, (mediaStream) => {
+      currentUserVideoRef.current.srcObject = mediaStream;
+      currentUserVideoRef.current.play();
+
+      const call = peerInstance.current.call(remotePeerId, mediaStream);
+
+      call.on("stream", (remoteStream) => {
+        remoteVideoRef.current.srcObject = remoteStream;
+        remoteVideoRef.current.play();
+      });
+    });
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
+    <div className="container border shadow rounded-2xl">
+      <div className="flex gap-3 place-items-center justify-center m-5">
+        <h1 className="font-bold">
+          Your id is <span className="font-normal">{peerId}</span>
+        </h1>
+
+        {/* Copy Id Button */}
+        <button
+          onClick={() => navigator.clipboard.writeText(peerId)}
+          className="mt-2 p-3 rounded-2xl shadow hover:bg-black hover:text-white"
+        >
+          Copy Id
         </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
+        {/* <button onClick={() => peerInstance.current.disconnect()}>Disconnect</button> */}
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+
+      <input
+        type="text"
+        value={remotePeerIdValue}
+        onChange={(e) => setRemotePeerIdValue(e.target.value)}
+        className="border shadow rounded-2xl m-5 p-3"
+      />
+      <button
+        onClick={() => call(remotePeerIdValue)}
+        className="mt-2 p-3 rounded-2xl shadow hover:bg-black hover:text-white"
+      >
+        Call
+      </button>
+      <div className="border rounded-3xl shadow p-3 m-3">
+        <p className="font-bold">Local Video</p>
+        <video ref={currentUserVideoRef} />
+      </div>
+      <div className="border rounded-3xl shadow p-3 m-3">
+        <p className="font-bold">Remote Video</p>
+        <video ref={remoteVideoRef} />
+      </div>
+
+      <div></div>
+    </div>
+  );
 }
 
-export default App
+export default App;
